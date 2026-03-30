@@ -50,6 +50,7 @@ def _apply_audience(db: Session, db_class: LiveClass, audience_type: str,
 
 # ─── Create ───────────────────────────────────────────────────────────────────
 @router.post("/", response_model=LiveClassResponse)
+@router.post("", response_model=LiveClassResponse)
 def create_live_class(
     data: LiveClassCreate,
     db: Session = Depends(get_db),

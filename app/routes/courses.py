@@ -14,6 +14,7 @@ router = APIRouter(prefix="/courses", tags=["Courses"])
 
 # HR admin creates course
 @router.post("/", response_model=CourseResponse)
+@router.post("", response_model=CourseResponse)
 def create_course(
     course: CourseCreate,
     db: Session = Depends(get_db),

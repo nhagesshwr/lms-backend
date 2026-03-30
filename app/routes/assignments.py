@@ -13,6 +13,7 @@ router = APIRouter(prefix="/assignments", tags=["Assignments"])
 
 
 @router.post("/", response_model=AssignmentResponse)
+@router.post("", response_model=AssignmentResponse)
 def create_assignment(
     data: AssignmentCreate,
     db: Session = Depends(get_db),

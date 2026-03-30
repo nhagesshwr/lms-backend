@@ -9,6 +9,7 @@ router = APIRouter(prefix="/departments", tags=["Departments"])
 
 # Only super admin can create department
 @router.post("/", response_model=DepartmentResponse)
+@router.post("", response_model=DepartmentResponse)
 def create_department(
     dept: DepartmentCreate,
     db: Session = Depends(get_db),

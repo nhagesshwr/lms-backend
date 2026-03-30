@@ -64,6 +64,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
 
 
 @router.post("/", response_model=MessageResponse)
+@router.post("", response_model=MessageResponse)
 async def send_message(
     data: MessageCreate,
     db: Session = Depends(get_db),
