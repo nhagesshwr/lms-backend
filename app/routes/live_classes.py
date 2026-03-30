@@ -70,6 +70,7 @@ def create_live_class(
 
 # ─── List all ─────────────────────────────────────────────────────────────────
 @router.get("/", response_model=List[LiveClassResponse])
+@router.get("", response_model=List[LiveClassResponse])
 def get_live_classes(
     db: Session = Depends(get_db),
     current_user: Employee = Depends(get_current_employee)

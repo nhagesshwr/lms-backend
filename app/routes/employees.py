@@ -97,6 +97,7 @@ def update_employee(
         emp.name = emp_update.name
     if emp_update.role:
         emp.role = emp_update.role
+        emp.is_pending = False
     if emp_update.department_id is not None:
         emp.department_id = emp_update.department_id
     if emp_update.is_active is not None:
