@@ -10,7 +10,7 @@ from app.schemas import (
     UpdateProfileRequest
 )
 from app.auth import hash_password, verify_password, create_access_token
-from app.dependencies import get_current_employee, require_super_admin
+from app.dependencies import get_current_employee, require_super_admin, require_hr_admin
 from datetime import datetime, timedelta
 import secrets
 import os
@@ -70,7 +70,7 @@ def assign_role(
     employee_id: int,
     data: AssignRoleRequest,
     db: Session = Depends(get_db),
-    current: Employee = Depends(require_super_admin),
+    current: Employee = Depends(require_hr_admin),  # hr_admin and super_admin can assign roles
 ):
     """Super admin assigns a role to a pending user and sends them an email."""
     from app.models import RoleEnum

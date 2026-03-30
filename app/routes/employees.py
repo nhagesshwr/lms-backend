@@ -52,6 +52,7 @@ def get_all_employees(
     db: Session = Depends(get_db),
     current=Depends(require_manager)
 ):
+    # Return all active employees including pending ones (pending shown separately in UI)
     return db.query(Employee).filter(Employee.is_active == True).all()
 
 
