@@ -119,6 +119,7 @@ async def send_message(
 
 
 @router.get("/", response_model=list[dict])
+@router.get("", response_model=list[dict])
 def get_my_messages(
     db: Session = Depends(get_db),
     current: Employee = Depends(require_employee)

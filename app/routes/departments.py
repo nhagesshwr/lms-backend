@@ -25,6 +25,7 @@ def create_department(
 
 # Manager and above can view all departments
 @router.get("/", response_model=list[DepartmentResponse])
+@router.get("", response_model=list[DepartmentResponse])
 def get_departments(
     db: Session = Depends(get_db),
     current=Depends(require_manager)

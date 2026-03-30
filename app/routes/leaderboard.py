@@ -8,6 +8,7 @@ from app.dependencies import require_employee
 router = APIRouter(prefix="/leaderboard", tags=["Leaderboard"])
 
 @router.get("/")
+@router.get("")
 def get_leaderboard(db: Session = Depends(get_db)):
     # Calculate leaderboard based on progress_pct
     # Sum of progress divided by enrolled courses (or just sum for XP)

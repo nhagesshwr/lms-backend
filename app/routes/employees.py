@@ -47,6 +47,7 @@ def get_admin_users(
 
 # Manager and above can view all employees (active only)
 @router.get("/", response_model=list[EmployeeResponse])
+@router.get("", response_model=list[EmployeeResponse])
 def get_all_employees(
     db: Session = Depends(get_db),
     current=Depends(require_manager)

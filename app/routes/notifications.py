@@ -101,6 +101,7 @@ def _time_ago(dt: datetime) -> str:
 # ─── GET /notifications/ ──────────────────────────────────────────────────────
 
 @router.get("/")
+@router.get("")
 def get_notifications(
     db: Session = Depends(get_db),
     current: Employee = Depends(require_employee)

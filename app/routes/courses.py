@@ -31,14 +31,6 @@ def create_course(
     db.refresh(new_course)
     return new_course
 
-# Everyone views all published courses
-@router.get("/", response_model=list[CourseResponse])
-def get_courses(
-    db: Session = Depends(get_db),
-    current=Depends(require_employee)
-):
-    return db.query(Course).filter(Course.is_published == True).all()
-
 # HR admin views all courses including unpublished
 @router.get("/all", response_model=list[CourseResponse])
 def get_all_courses(
@@ -54,6 +46,15 @@ def get_all_courses_with_lessons(
     current=Depends(require_hr_admin)
 ):
     return db.query(Course).all()
+
+# Everyone views all published courses
+@router.get("/", response_model=list[CourseResponse])
+@router.get("", response_model=list[CourseResponse])
+def get_courses(
+    db: Session = Depends(get_db),
+    current=Depends(require_employee)
+):
+    return db.query(Course).filter(Course.is_published == True).all()
 
 # Get single course with lessons
 @router.get("/{course_id}", response_model=CourseWithLessons)

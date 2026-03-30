@@ -13,7 +13,8 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title="Company LMS API",
     version="1.0.0",
-    swagger_ui_parameters={"persistAuthorization": True}
+    swagger_ui_parameters={"persistAuthorization": True},
+    redirect_slashes=False   # don't 307/308 redirect — accept both /path and /path/
 )
 
 # Configure CORS
