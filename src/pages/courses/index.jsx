@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { FiBookOpen, FiPlus, FiClock, FiEdit2, FiTrash2, FiEye, FiEyeOff, FiUploadCloud } from 'react-icons/fi';
-import { getToken, getUser, coursesAPI, canManageCourses } from '../../lib/api';
+import { FiBookOpen, FiPlus, FiClock, FiEdit2, FiTrash2, FiEye, FiEyeOff, FiUploadCloud, FiUserPlus } from 'react-icons/fi';
+import { getToken, getUser, coursesAPI, canManageCourses, canAssignCourses, isManager, employeesAPI, enrollmentsAPI } from '../../lib/api';
 import {
   Layout, PageHeader, Button, Modal, FormField, Input, Textarea, Select,
   SearchBar, Loading, EmptyState, useToast, ConfirmModal,
@@ -25,6 +25,12 @@ export default function Courses() {
   const [confirm, setConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Assign modal (manager)
+  const [assignCourse, setAssignCourse] = useState(null);
+  const [teamMembers, setTeamMembers]   = useState([]);
+  const [assignEmpId, setAssignEmpId]   = useState('');
+  const [assigning, setAssigning]       = useState(false);
+
   const { showToast, ToastComponent } = useToast();
 
   useEffect(() => {
@@ -32,6 +38,9 @@ export default function Courses() {
     const u = getUser();
     setUser(u);
     loadCourses(u);
+    if (isManager(u?.role) && u?.department_id) {
+      employeesAPI.getAll().then(emps => setTeamMembers(emps.filter(e => e.department_id === u.department_id))).catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
@@ -90,48 +99,58 @@ export default function Courses() {
     finally { setDeleting(false); }
   };
 
+  const handleAssign = async (e) => {
+    e.preventDefault();
+    if (!assignEmpId) return;
+    setAssigning(true);
+    try {
+      await enrollmentsAPI.assign(parseInt(assignEmpId), assignCourse.id);
+      showToast('Course assigned to team member!');
+      setAssignCourse(null);
+      setAssignEmpId('');
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { setAssigning(false); }
+  };
+
   const canManage = canManageCourses(user?.role);
+  const canAssign = canAssignCourses(user?.role);
+  const isManagerRole = isManager(user?.role);
+
   const published = courses.filter(c => c.is_published).length;
   const drafts    = courses.filter(c => !c.is_published).length;
 
   return (
     <Layout>
-      <PageHeader
-        title="Courses"
-        subtitle="Manage and browse your learning content"
-        actions={canManage && (
-          <Button icon={<FiPlus size={15} />} onClick={() => setShowCreate(true)}>
-            New Course
-          </Button>
-        )}
-      />
-
-      {/* Mini stats */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-        {[
-          { label: 'All', count: courses.length, val: 'all' },
-          { label: 'Published', count: published, val: 'published' },
-          { label: 'Drafts', count: drafts, val: 'draft' },
-        ].map(({ label, count, val }) => (
-          <button key={val}
-            onClick={() => setFilterStatus(val)}
-            style={{
-              padding: '7px 16px', borderRadius: 'var(--r-sm)',
-              border: filterStatus === val ? '1.5px solid var(--brand)' : '1.5px solid var(--border)',
-              background: filterStatus === val ? 'var(--brand-bg)' : 'var(--bg-white)',
-              color: filterStatus === val ? 'var(--brand)' : 'var(--text-muted)',
-              fontSize: '0.84rem', fontWeight: 600, cursor: 'pointer',
-              transition: 'var(--transition)',
-            }}>
-            {label} <span style={{ opacity: 0.6, fontWeight: 400, marginLeft: 4 }}>{count}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="toolbar">
-        <SearchBar value={search} onChange={setSearch} placeholder="Search courses…" />
-        <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-          {filtered.length} course{filtered.length !== 1 ? 's' : ''}
+      <div className="page-header-block">
+        <div className="page-header-left">
+          <h1 className="page-header-title">Courses</h1>
+          <p className="page-header-desc">{isManagerRole ? 'View and assign courses to your team' : 'Manage and browse your learning content'}</p>
+        </div>
+        <div className="page-header-right">
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[
+              { label: 'All', val: 'all' },
+              { label: 'Published', val: 'published' },
+              { label: 'Drafts', val: 'draft' },
+            ].map(({ label, val }) => (
+              <button key={val}
+                onClick={() => setFilterStatus(val)}
+                className="btn btn-sm"
+                style={{
+                  background: filterStatus === val ? 'var(--brand)' : 'var(--bg-white)',
+                  color: filterStatus === val ? '#fff' : 'var(--text-muted)',
+                  border: filterStatus === val ? '1px solid var(--brand)' : '1px solid var(--border)',
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <SearchBar value={search} onChange={setSearch} placeholder="Search courses…" />
+          {canManage && (
+            <Button icon={<FiPlus size={15} />} onClick={() => setShowCreate(true)}>
+              New Course
+            </Button>
+          )}
         </div>
       </div>
 
@@ -149,27 +168,32 @@ export default function Courses() {
       ) : (
         <div className="grid-3">
           {filtered.map(course => (
-            <div key={course.id} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <CourseModernCard
-                course={course}
-                onClick={() => router.push(`/courses/${course.id}`)}
-              />
-
-              {canManage && (
-                <div className="course-actions" style={{ padding: '0 10px 15px', marginTop: -10 }}>
-                  <Button variant="secondary" size="sm"
-                    icon={course.is_published ? <FiEyeOff size={13} /> : <FiEye size={13} />}
-                    onClick={(e) => { e.stopPropagation(); handleToggle(course); }}>
-                    {course.is_published ? 'Unpublish' : 'Publish'}
+            <CourseModernCard
+              key={course.id}
+              course={course}
+              onClick={() => router.push(`/courses/${course.id}`)}
+              actions={
+                canManage ? (
+                  <>
+                    <Button variant="secondary" size="sm"
+                      icon={course.is_published ? <FiEyeOff size={13} /> : <FiEye size={13} />}
+                      onClick={(e) => { e.stopPropagation(); handleToggle(course); }}>
+                      {course.is_published ? 'Unpublish' : 'Publish'}
+                    </Button>
+                    <Link href={`/courses/${course.id}`} style={{ marginLeft: 'auto', display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+                      <Button variant="ghost" size="sm" icon={<FiEdit2 size={13} />}>Edit</Button>
+                    </Link>
+                    <Button variant="danger" size="sm" icon={<FiTrash2 size={13} />}
+                      onClick={(e) => { e.stopPropagation(); setConfirm(course); }} />
+                  </>
+                ) : canAssign ? (
+                  <Button variant="secondary" size="sm" icon={<FiUserPlus size={13} />}
+                    onClick={(e) => { e.stopPropagation(); setAssignCourse(course); setAssignEmpId(''); }}>
+                    Assign to Team
                   </Button>
-                  <Link href={`/courses/${course.id}`} style={{ marginLeft: 'auto', display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
-                    <Button variant="ghost" size="sm" icon={<FiEdit2 size={13} />}>Edit</Button>
-                  </Link>
-                  <Button variant="danger" size="sm" icon={<FiTrash2 size={13} />}
-                    onClick={(e) => { e.stopPropagation(); setConfirm(course); }} />
-                </div>
-              )}
-            </div>
+                ) : null
+              }
+            />
           ))}
         </div>
       )}
@@ -212,6 +236,26 @@ export default function Courses() {
       <ConfirmModal open={!!confirm} title="Delete Course"
         message={`Are you sure you want to delete "${confirm?.title}"? All lessons and content will be permanently removed.`}
         onConfirm={handleDelete} onCancel={() => setConfirm(null)} loading={deleting} />
+
+      {/* Assign to team modal (manager) */}
+      <Modal title={`Assign "${assignCourse?.title}" to Team Member`}
+        open={!!assignCourse} onClose={() => setAssignCourse(null)}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setAssignCourse(null)}>Cancel</Button>
+            <Button onClick={handleAssign} disabled={assigning || !assignEmpId} icon={<FiUserPlus size={14} />}>
+              {assigning ? 'Assigning…' : 'Assign Course'}
+            </Button>
+          </>
+        }
+      >
+        <FormField label="Select Team Member">
+          <Select value={assignEmpId} onChange={e => setAssignEmpId(e.target.value)} required>
+            <option value="">— Choose a team member —</option>
+            {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </Select>
+        </FormField>
+      </Modal>
 
       {ToastComponent}
     </Layout>

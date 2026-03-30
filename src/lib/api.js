@@ -3,7 +3,8 @@
  * Live APIs connected to backend
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+export const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+export const API_URL = API_BASE;
 const TIMEOUT = 90_000;
 
 // ─── Token / User helpers ─────────────────────────────────────────────────────
@@ -83,7 +84,10 @@ async function uploadFile(lessonId, type, file) {
 
   let res;
   try {
-    const endpoint = type === 'video' ? `/lessons/${lessonId}/upload-video` : `/lessons/${lessonId}/upload-pdf`;
+    let endpoint = `/lessons/${lessonId}/upload-pdf`;
+    if (type === 'video') endpoint = `/lessons/${lessonId}/upload-video`;
+    else if (type === 'assignment') endpoint = `/lessons/assignments/${lessonId}/document`;
+
     res = await fetch(`${API_BASE}${endpoint}`, {
       method: 'POST',
       headers,
@@ -154,6 +158,7 @@ export const authAPI = {
   changePassword: (data) => request('/auth/change-password', { method: 'POST', body: JSON.stringify(data) }),
   forgotPassword: (data) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify(data) }),
   resetPassword: (data) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify(data) }),
+  assignRole: (employeeId, role, departmentId) => request(`/auth/assign-role/${employeeId}`, { method: 'PUT', body: JSON.stringify({ role, department_id: departmentId || null }) }),
   logout: () => { removeToken(); removeUser(); },
 };
 
@@ -161,6 +166,7 @@ export const authAPI = {
 export const employeesAPI = {
   create:          (data)     => request('/employees/',                 { method: 'POST',   body: JSON.stringify(data) }),
   getAll:          ()         => request('/employees/'),
+  getAdmins:       ()         => request('/employees/admins'),
   getById:         (id)       => request(`/employees/${id}`),
   getByDepartment: (deptId)   => request(`/employees/department/${deptId}`),
   update:          (id, data) => request(`/employees/${id}`,            { method: 'PUT',    body: JSON.stringify(data) }),
@@ -178,14 +184,15 @@ export const departmentsAPI = {
 
 // ─── Courses ──────────────────────────────────────────────────────────────────
 export const coursesAPI = {
-  create:       (data)     => request('/courses/',                { method: 'POST',   body: JSON.stringify(data) }),
-  getPublished: ()         => request('/courses/'),
-  getAll:       ()         => request('/courses/all'),
-  getById:      (id)       => request(`/courses/${id}`),
-  update:       (id, data) => request(`/courses/${id}`,           { method: 'PUT',    body: JSON.stringify(data) }),
-  publish:      (id)       => request(`/courses/${id}/publish`,   { method: 'POST' }),
-  unpublish:    (id)       => request(`/courses/${id}/unpublish`, { method: 'POST' }),
-  delete:       (id)       => request(`/courses/${id}`,           { method: 'DELETE' }),
+  create:          (data)     => request('/courses/',                { method: 'POST',   body: JSON.stringify(data) }),
+  getPublished:    ()         => request('/courses/'),
+  getAll:          ()         => request('/courses/all'),
+  getAllWithLessons: ()       => request('/courses/all/with_lessons'),
+  getById:         (id)       => request(`/courses/${id}`),
+  update:          (id, data) => request(`/courses/${id}`,           { method: 'PUT',    body: JSON.stringify(data) }),
+  publish:         (id)       => request(`/courses/${id}/publish`,   { method: 'POST' }),
+  unpublish:       (id)       => request(`/courses/${id}/unpublish`, { method: 'POST' }),
+  delete:          (id)       => request(`/courses/${id}`,           { method: 'DELETE' }),
 };
 
 // ─── Lessons ──────────────────────────────────────────────────────────────────
@@ -212,11 +219,14 @@ export const enrollmentsAPI = {
   enroll:          (courseId) => request('/enrollments/enroll', { method: 'POST', body: JSON.stringify({ course_id: courseId }) }),
   assign:          (employeeId, courseId) => request('/enrollments/assign', { method: 'POST', body: JSON.stringify({ employee_id: employeeId, course_id: courseId }) }),
   unenroll:        (courseId) => request(`/enrollments/unenroll/${courseId}`, { method: 'DELETE' }),
+  adminUnenroll:   (employeeId, courseId) => request(`/enrollments/admin/unenroll/${employeeId}/${courseId}`, { method: 'DELETE' }),
   getMy:           () => request('/enrollments/my'),
   getEnrolled:     (courseId) => request(`/enrollments/course/${courseId}/employees`),
+  getByEmployee:   (employeeId) => request(`/enrollments/employee/${employeeId}`),
   completeLesson:  (lessonId, courseId) => request(`/enrollments/complete-lesson?lesson_id=${lessonId}&course_id=${courseId}`, { method: 'POST' }),
   checkStatus:     (courseId) => request(`/enrollments/check/${courseId}`),
 };
+
 
 export const mockAssignments = [
   { id: 1, title: 'React Final Project', course: 'Advanced React Patterns', status: 'due_today', due: '2026-03-26T23:59:00Z', points: 100 },
@@ -234,7 +244,8 @@ export const assignmentsAPI = {
   delete:      (id) => request(`/assignments/${id}`, { method: 'DELETE' }),
   submit:      (id, text) => request(`/assignments/${id}/submit`, { method: 'POST', body: JSON.stringify({ submission_text: text }) }),
   getSubmissions: (id) => request(`/assignments/${id}/submissions`),
-  grade:       (id, employeeId, grade, feedback) => request(`/assignments/${id}/grade/${employeeId}`, { method: 'POST', body: JSON.stringify({ grade, feedback }) })
+  grade:       (id, employeeId, grade, feedback) => request(`/assignments/${id}/grade/${employeeId}`, { method: 'POST', body: JSON.stringify({ grade, feedback }) }),
+  uploadDocument: (id, file) => uploadFile(id, 'assignment', file)
 };
 
 // ─── Certificates ─────────────────────────────────────────────────────────────
@@ -247,6 +258,7 @@ export const certificatesAPI = {
   getMy:    () => request('/certificates/my'),
   getAll:   () => request('/certificates/all'),
   issue:    (employeeId, courseId) => request(`/certificates/issue/${employeeId}/${courseId}`, { method: 'POST' }),
+  generate: (courseId) => request(`/certificates/generate/${courseId}`, { method: 'POST' }),
   get:      (id) => request(`/certificates/${id}`),
   revoke:   (id) => request(`/certificates/${id}`, { method: 'DELETE' }),
   download: (id) => Promise.resolve({ url: `/api/certificates/download/${id}` }) // Usually handled via stream or special route
@@ -261,6 +273,7 @@ export const messagesAPI = {
   getAll:    () => request('/messages/'),
   send:     (receiverId, content) => request('/messages/', { method: 'POST', body: JSON.stringify({ receiver_id: receiverId, content }) }),
   markRead: (id) => request(`/messages/${id}/read`, { method: 'PUT' }),
+  markThreadRead: (senderId) => request(`/messages/read-thread/${senderId}`, { method: 'PUT' }),
 };
 
 // ─── Doubts ───────────────────────────────────────────────────────────────────
@@ -280,20 +293,20 @@ export const quizzesAPI = {
 };
 
 // ─── Mock Data for features not in backend yet (Live Classes, Leaderboard, Study Groups)
-export const mockLiveClasses = [
-  { id: 1, title: 'React Performance Deep Dive', instructor: 'Mihail Georgescu', date: '2026-03-22', time: '10:00 AM', enrolled: 24, capacity: 30, status: 'upcoming', meetLink: '#' }
-];
+export const mockLiveClasses = [];
 export const liveClassesAPI = {
-  getAll: () => Promise.resolve(mockLiveClasses),
-  getMy: () => Promise.resolve(mockLiveClasses)
+  getAll:      ()         => request('/live-classes/'),
+  getMy:       ()         => request('/live-classes/my'),
+  getById:     (id)       => request(`/live-classes/${id}`),
+  create:      (data)     => request('/live-classes/', { method: 'POST', body: JSON.stringify(data) }),
+  update:      (id, data) => request(`/live-classes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete:      (id)       => request(`/live-classes/${id}`, { method: 'DELETE' }),
+  getAudience: (id)       => request(`/live-classes/${id}/audience`),
 };
 
-export const mockLeaderboard = [
-  { rank: 1, name: 'Priya Sharma', department: 'Engineering', xp: 4200, streak: 28, courses: 8, avatar: 'PS', change: 0 }
-];
 export const leaderboardAPI = {
-  getAll: () => Promise.resolve(mockLeaderboard),
-  getMyRank: () => Promise.resolve(mockLeaderboard[0]),
+  getAll: () => request('/leaderboard/'),
+  getMyRank: () => request('/leaderboard/me'),
 };
 
 export const mockStudyGroups = [
@@ -320,24 +333,54 @@ export const progressAPI = {
       progress: e.progress_pct,
       lessons: e.course?.lessons?.length || 0,
       completed: Math.round((e.progress_pct / 100) * (e.course?.lessons?.length || 0)),
-      watchedMinutes: 0
+      watchedMinutes: e.lesson_progress?.reduce((s, lp) => s + (lp.watched_seconds / 60), 0) || 0,
+      totalMinutes: e.course?.lessons?.reduce((s, l) => s + (l.duration_minutes || 0), 0) || 0,
+      lastAccessed: e.completed_at || e.enrolled_at || new Date().toISOString()
     }));
   }
 };
 
 export const notificationsAPI = {
-  getAll: () => Promise.resolve([
-    { id: 1, type: 'info', message: 'Welcome to Bryte LMS', time: 'Just now', read: false }
-  ]),
-  markRead: () => Promise.resolve()
+  getAll: () => request('/notifications/'),
+  markRead: (id) => Promise.resolve(), // extend later
+};
+
+// ─── Activity ─────────────────────────────────────────────────────────────────
+export const activityAPI = {
+  getRecent: (limit = 20, type = null) => {
+    const params = new URLSearchParams({ limit });
+    if (type) params.append('type', type);
+    return request(`/activity/recent?${params.toString()}`);
+  },
 };
 
 // ─── Role helpers ─────────────────────────────────────────────────────────────
 export const ROLES = { SUPER_ADMIN: 'super_admin', HR_ADMIN: 'hr_admin', MANAGER: 'manager', EMPLOYEE: 'employee' };
-export const canManageCourses     = (role) => ['super_admin', 'hr_admin'].includes(role);
-export const canManageEmployees   = (role) => role === 'super_admin';
-export const canViewEmployees     = (role) => ['super_admin', 'hr_admin', 'manager'].includes(role);
-export const canManageDepartments = (role) => role === 'super_admin';
-export const isHROrAbove          = (role) => ['super_admin', 'hr_admin'].includes(role);
 export const isSuperAdmin         = (role) => role === 'super_admin';
+export const isHROrAbove          = (role) => ['super_admin', 'hr_admin'].includes(role);
+export const isManager            = (role) => role === 'manager';
+export const isManagerOrAbove     = (role) => ['super_admin', 'hr_admin', 'manager'].includes(role);
+
+// Courses: super_admin & hr_admin can create/edit/delete; manager can view & assign only
+export const canManageCourses     = (role) => ['super_admin', 'hr_admin'].includes(role);
+export const canAssignCourses     = (role) => ['super_admin', 'hr_admin', 'manager'].includes(role);
+
+// Employees: super_admin & hr_admin can create/edit/delete; manager can view their team only
+export const canManageEmployees   = (role) => ['super_admin', 'hr_admin'].includes(role);
+export const canViewEmployees     = (role) => ['super_admin', 'hr_admin', 'manager'].includes(role);
+
+// Departments: super_admin & hr_admin can create/edit/delete; manager can view only
+export const canManageDepartments = (role) => ['super_admin', 'hr_admin'].includes(role);
+export const canViewDepartments   = (role) => ['super_admin', 'hr_admin', 'manager'].includes(role);
+
+// Enrollments: super_admin = all, hr_admin = assign, manager = assign team, employee = self
+export const canAssignEnrollments = (role) => ['super_admin', 'hr_admin', 'manager'].includes(role);
+
+// Quizzes & Assignments: super_admin & hr_admin can create; employee can attempt/submit
+export const canManageQuizzes     = (role) => ['super_admin', 'hr_admin'].includes(role);
+export const canManageAssignments = (role) => ['super_admin', 'hr_admin'].includes(role);
+
+// Certificates: super_admin & hr_admin can issue/revoke
+export const canManageCertificates = (role) => ['super_admin', 'hr_admin'].includes(role);
+
 export const getRoleLabel         = (role) => ({ super_admin: 'Super Admin', hr_admin: 'HR Admin', manager: 'Manager', employee: 'Employee' }[role] || role);

@@ -39,14 +39,16 @@ export default function CertificateView() {
     </div>
   );
 
-  const shortDate = cert.issuedAt
-    ? new Date(cert.issuedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const courseName = typeof cert.course === 'object' ? cert.course?.title : (cert.course || 'Course');
+  const shortDate = (cert.issued_at || cert.issuedAt)
+    ? new Date(cert.issued_at || cert.issuedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : 'N/A';
+  const credId = cert.credential_id || cert.credentialId || 'LMS-000001';
 
   return (
     <div className="viewer-wrap">
       <Head>
-        <title>Certificate - {cert.course}</title>
+        <title>Certificate - {courseName}</title>
       </Head>
 
       <div className="toolbar no-print">
@@ -86,7 +88,7 @@ export default function CertificateView() {
                 </div>
                 <div className="hex-ribbon-modern">
                   <div className="ribbon-center">
-                    <span className="ribbon-text-modern">{cert.course}</span>
+                    <span className="ribbon-text-modern">{courseName}</span>
                   </div>
                   <div className="ribbon-fold-l" />
                   <div className="ribbon-fold-r" />
@@ -96,14 +98,14 @@ export default function CertificateView() {
             </div>
 
             <div className="cert-type">PROFESSIONAL CERTIFICATION</div>
-            <h1 className="cert-title">{cert.course}</h1>
+            <h1 className="cert-title">{courseName}</h1>
 
             <div className="issued-label">CONFERRED UPON</div>
             <div className="issued-name">{user?.name || 'Student Name'}</div>
 
             <p className="cert-desc">
               This certificate is awarded in recognition of the successful completion of the
-              <strong> {cert.course} </strong> professional program, demonstrating comprehensive
+              <strong> {courseName} </strong> professional program, demonstrating comprehensive
               knowledge and mastery of industry-standard competencies.
             </p>
 
@@ -146,7 +148,7 @@ export default function CertificateView() {
                   </svg>
                 </div>
                 <div className="meta-text">
-                  Issued: {shortDate}<br />ID: {cert.credentialId || 'LMS-000001'}
+                  Issued: {shortDate}<br />ID: {credId}
                 </div>
               </div>
             </div>

@@ -6,22 +6,17 @@ import {
   FiTrendingUp, FiCheckCircle, FiPlus, FiSettings, FiDatabase,
 } from 'react-icons/fi';
 import {
-  getToken, getUser, isSuperAdmin, employeesAPI, coursesAPI, departmentsAPI,
+  getToken, getUser, isSuperAdmin, employeesAPI, coursesAPI, departmentsAPI, activityAPI,
 } from '../../lib/api';
 import { Layout, Loading, StatCard, Badge, RoleChip } from '../../components/components';
 
-const RECENT_ACTIONS = [
-  { user: 'Priya Sharma', role: 'hr_admin', action: 'Created course "TypeScript Advanced"', time: '5 min ago' },
-  { user: 'System', role: 'system', action: 'Auto-published 3 completed lessons', time: '1 hour ago' },
-  { user: 'Ravi Kumar', role: 'employee', action: 'Completed CSS Mastery', time: '2 hours ago' },
-  { user: 'Ananya Singh', role: 'hr_admin', action: 'Added 5 new employees to Engineering dept', time: '3 hours ago' },
-  { user: 'Admin', role: 'super_admin', action: 'Updated system settings', time: '1 day ago' },
-];
+const TYPE_COLOR = { complete: 'green', submit: 'brand', start: 'blue', cert: 'orange', admin: 'amber', quiz: 'teal' };
 
 export default function SuperAdminOverview() {
   const router = useRouter();
-  const [stats, setStats]   = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats]       = useState(null);
+  const [activity, setActivity] = useState([]);
+  const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
     if (!getToken()) { router.push('/login'); return; }
@@ -31,13 +26,15 @@ export default function SuperAdminOverview() {
       employeesAPI.getAll().catch(() => []),
       coursesAPI.getAll().catch(() => []),
       departmentsAPI.getAll().catch(() => []),
-    ]).then(([emps, courses, depts]) => {
+      activityAPI.getRecent(5).catch(() => []),
+    ]).then(([emps, courses, depts, acts]) => {
       setStats({
-        employees:    emps.length,
-        courses:      courses.length,
-        published:    courses.filter(c => c.is_published).length,
-        departments:  depts.length,
+        employees:   emps.length,
+        courses:     courses.length,
+        published:   courses.filter(c => c.is_published).length,
+        departments: depts.length,
       });
+      setActivity(acts || []);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -49,9 +46,13 @@ export default function SuperAdminOverview() {
   ];
 
   return (
-    <Layout title="Super Admin Overview" subtitle="Full platform visibility and control">
+    <Layout>
       {loading ? <Loading /> : (
         <>
+          <div className="page-header-block">
+            <h1 className="page-header-title">Platform Overview</h1>
+            <p className="page-header-desc">Full platform visibility and control across all teams and courses.</p>
+          </div>
           <div className="admin-hero">
             <div className="admin-hero-title">Platform Overview</div>
             <div className="admin-hero-sub">Real-time metrics across your entire LMS deployment</div>
@@ -80,12 +81,16 @@ export default function SuperAdminOverview() {
                 <h2>Recent Admin Actions</h2>
                 <Link href="/superadmin/activity"><button className="btn btn-ghost btn-sm">View All</button></Link>
               </div>
-              {RECENT_ACTIONS.map((a, i) => (
-                <div key={i} className="activity-row">
-                  <div className="activity-avatar">{a.user.split(' ').map(w => w[0]).join('').slice(0,2)}</div>
+              {activity.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 24 }}>
+                  No activity yet — data will appear as users interact with the platform.
+                </p>
+              ) : activity.map((a) => (
+                <div key={a.id} className="activity-row">
+                  <div className="activity-avatar">{a.user.split(' ').map(w => w[0]).join('').slice(0, 2)}</div>
                   <div className="activity-info">
                     <div className="activity-user">{a.user} <RoleChip role={a.role} /></div>
-                    <div className="activity-action">{a.action}</div>
+                    <div className="activity-action">{a.action}{a.detail ? ` — ${a.detail}` : ''}</div>
                   </div>
                   <div className="activity-time">{a.time}</div>
                 </div>
@@ -119,3 +124,5 @@ export default function SuperAdminOverview() {
     </Layout>
   );
 }
+
+

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { FiBarChart2, FiClock, FiCheckCircle, FiBookOpen } from 'react-icons/fi';
-import { getToken, progressAPI, mockProgress } from '../../lib/api';
+import { getToken, getUser, progressAPI } from '../../lib/api';
 import { Layout, Loading, StatCard, ProgressRing } from '../../components/components';
 
 function ProgressCard({ p }) {
@@ -37,6 +37,8 @@ export default function Progress() {
 
   useEffect(() => {
     if (!getToken()) { router.push('/login'); return; }
+    const u = getUser();
+    if (u?.role !== 'employee') { router.push('/dashboard'); return; }
     progressAPI.getMy().then(setData).catch(() => setData(mockProgress)).finally(() => setLoading(false));
   }, []);
 

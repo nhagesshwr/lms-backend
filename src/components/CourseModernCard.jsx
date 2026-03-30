@@ -1,9 +1,9 @@
 import React from 'react';
 import { FiBook, FiPlay, FiFileText, FiLink, FiCheckCircle } from 'react-icons/fi';
 
-const CourseModernCard = ({ course, progress, onClick }) => {
+const CourseModernCard = ({ course, progress, onClick, actions }) => {
   return (
-    <div className="course-modern-card" onClick={onClick} style={{ cursor: 'pointer' }}>
+    <div className="course-modern-card" onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
       <div className="cmc-top">
         {/* Radar Rings */}
         <div className="cmc-ring cmc-ring-1"></div>
@@ -73,6 +73,22 @@ const CourseModernCard = ({ course, progress, onClick }) => {
                 }} 
               />
             </div>
+          </div>
+        )}
+
+        {actions && (
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              marginTop: 16,
+              paddingTop: 14,
+              borderTop: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            {actions}
           </div>
         )}
       </div>

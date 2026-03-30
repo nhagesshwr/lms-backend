@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { FiCompass, FiSearch, FiBookOpen, FiFilter } from 'react-icons/fi';
-import { getToken, coursesAPI } from '../../lib/api';
+import { getToken, getUser, coursesAPI } from '../../lib/api';
 import { Layout, Loading, SearchBar, CourseCard, EmptyState } from '../../components/components';
 
 const CATEGORIES = ['All', 'Frontend', 'Backend', 'Data', 'Design', 'Management', 'DevOps'];
@@ -16,6 +16,8 @@ export default function Explore() {
 
   useEffect(() => {
     if (!getToken()) { router.push('/login'); return; }
+    const u = getUser();
+    if (u?.role !== 'employee') { router.push('/dashboard'); return; }
     coursesAPI.getPublished().then(setCourses).catch(() => setCourses([])).finally(() => setLoading(false));
   }, []);
 
@@ -25,9 +27,13 @@ export default function Explore() {
   });
 
   return (
-    <Layout title="Explore" subtitle="Discover new courses and expand your skills">
+    <Layout>
       {loading ? <Loading /> : (
         <>
+          <div className="page-header-block">
+            <h1 className="page-header-title">Explore</h1>
+            <p className="page-header-desc">Discover new courses and expand your skills.</p>
+          </div>
           <div className="explore-hero">
             <div className="explore-search-wrap">
               <FiSearch size={20} color="var(--text-dim)" />

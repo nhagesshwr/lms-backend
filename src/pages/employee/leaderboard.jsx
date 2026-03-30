@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { FiTrendingUp, FiArrowUp, FiArrowDown, FiMinus, FiZap, FiAward, FiBookOpen } from 'react-icons/fi';
-import { getToken, getUser, leaderboardAPI, mockLeaderboard } from '../../lib/api';
-import { Layout, Loading, Tabs, StatCard } from '../../components/components';
+import { getToken, getUser, leaderboardAPI } from '../../lib/api';
+import { Layout, Loading, Tabs, StatCard, EmptyState } from '../../components/components';
 
 const MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
@@ -45,8 +45,10 @@ export default function Leaderboard() {
 
   useEffect(() => {
     if (!getToken()) { router.push('/login'); return; }
+    const u = getUser();
+    if (u?.role !== 'employee') { router.push('/dashboard'); return; }
     Promise.all([
-      leaderboardAPI.getAll().catch(() => mockLeaderboard),
+      leaderboardAPI.getAll().catch(() => []),
       leaderboardAPI.getMyRank().catch(() => null),
     ]).then(([d, r]) => { setData(d); setMyRank(r); }).finally(() => setLoading(false));
   }, []);
@@ -58,9 +60,18 @@ export default function Leaderboard() {
   ];
 
   return (
-    <Layout title="Leaderboard" subtitle="See how you stack up against your colleagues">
+    <Layout>
       {loading ? <Loading /> : (
         <>
+          <div className="page-header-block">
+            <div className="page-header-left">
+              <h1 className="page-header-title">Leaderboard</h1>
+              <p className="page-header-desc">See how you stack up against your colleagues.</p>
+            </div>
+            <div className="page-header-right">
+              <Tabs tabs={tabs} active={tab} onChange={setTab} />
+            </div>
+          </div>
           <div className="stats-row">
             <StatCard label="Your Rank" value={myRank ? `#${myRank.rank}` : '—'} sub="Global ranking" color="brand" icon={<FiTrendingUp size={18} />} />
             <StatCard label="Your XP" value={myRank ? myRank.xp.toLocaleString() : '—'} sub="Experience points" color="orange" icon={<FiZap size={18} />} />
@@ -68,16 +79,22 @@ export default function Leaderboard() {
             <StatCard label="Participants" value={data.length} sub="Active learners" color="blue" icon={<FiBookOpen size={18} />} />
           </div>
 
-          <Tabs tabs={tabs} active={tab} onChange={setTab} />
-
-          <div className="table-wrapper">
-            <div className="leaderboard-header-row">
-              <span>Rank</span><span>Learner</span><span>Stats</span><span style={{ textAlign: 'right' }}>XP</span>
+          {data.length === 0 ? (
+            <EmptyState 
+              icon={<FiAward size={32} />} 
+              title="No rankings yet" 
+              description="Be the first to complete a lesson and climb the leaderboard!" 
+            />
+          ) : (
+            <div className="table-wrapper">
+              <div className="leaderboard-header-row">
+                <span>Rank</span><span>Learner</span><span>Stats</span><span style={{ textAlign: 'right' }}>XP</span>
+              </div>
+              {data.map(entry => (
+                <LeaderRow key={entry.rank} entry={entry} isSelf={entry.name === user?.name} />
+              ))}
             </div>
-            {data.map(entry => (
-              <LeaderRow key={entry.rank} entry={entry} isSelf={entry.name === user?.name} />
-            ))}
-          </div>
+          )}
         </>
       )}
     </Layout>

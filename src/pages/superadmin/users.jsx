@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { FiUsers, FiPlus, FiEdit2, FiTrash2, FiMail, FiSearch, FiShield } from 'react-icons/fi';
+import { FiUsers, FiPlus, FiEdit2, FiTrash2, FiMail, FiSearch, FiShield, FiExternalLink, FiClock } from 'react-icons/fi';
 import {
   getToken, getUser, isSuperAdmin,
   employeesAPI, departmentsAPI,
 } from '../../lib/api';
 import {
   Layout, Loading, Button, Modal, FormField, Input, Select,
-  SearchBar, RoleChip, Badge, useToast, ConfirmModal, Tabs, StatCard,
+  SearchBar, RoleChip, Badge, useToast, ConfirmModal, Tabs, StatCard, ActionMenu,
 } from '../../components/components';
 
 const ROLES = ['employee', 'manager', 'hr_admin', 'super_admin'];
@@ -90,7 +90,7 @@ export default function SuperAdminUsers() {
     setDeleting(true);
     try {
       await employeesAPI.delete(confirm.id);
-      showToast('User removed.'); setConfirm(null); loadAll();
+      showToast('User permanently deleted.'); setConfirm(null); loadAll();
     } catch (err) { showToast(err.message, 'error'); }
     finally { setDeleting(false); }
   };
@@ -105,25 +105,69 @@ export default function SuperAdminUsers() {
     { id: 'employee', label: 'Employee', count: employees.filter(e => e.role === 'employee').length },
   ];
 
+  const pendingUsers = employees.filter(e => e.is_pending);
+  const activeUsers  = filtered.filter(e => !e.is_pending);
+
+  const handleAssignRole = async (target, role, deptId) => {
+    setLoading(true); // temporary blocking
+    try {
+      await authAPI.assignRole(target.id, role, deptId || null);
+      showToast(`Role assigned for ${target.name}. User can now log in.`);
+      loadAll();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { setLoading(false); }
+  };
+
+  const initials = (name = '') => name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
   return (
-    <Layout title="Users" subtitle="Manage all platform users and roles">
+    <Layout>
       {ToastComponent}
       {loading ? <Loading /> : (
         <>
-          <div className="stats-row">
-            <StatCard label="Total Users" value={employees.length} sub="All roles" color="brand" icon={<FiUsers size={18} />} />
-            <StatCard label="Admins" value={employees.filter(e => e.role === 'super_admin' || e.role === 'hr_admin').length} sub="Super + HR" color="blue" icon={<FiShield size={18} />} />
-            <StatCard label="Managers" value={employees.filter(e => e.role === 'manager').length} sub="Team leads" color="green" icon={<FiUsers size={18} />} />
-            <StatCard label="Employees" value={employees.filter(e => e.role === 'employee').length} sub="Regular learners" color="orange" icon={<FiUsers size={18} />} />
-          </div>
-
-          <div className="toolbar">
-            <Tabs tabs={tabs} active={tab} onChange={setTab} />
-            <div className="toolbar-right">
+          <div className="page-header-block">
+            <div className="page-header-left">
+              <h1 className="page-header-title">Users</h1>
+              <p className="page-header-desc">Manage all platform users and their roles.</p>
+            </div>
+            <div className="page-header-right">
+              <Tabs tabs={tabs} active={tab} onChange={setTab} />
               <SearchBar value={search} onChange={setSearch} placeholder="Search users…" />
               <Button icon={<FiPlus size={14} />} onClick={() => setShowCreate(true)}>Add User</Button>
             </div>
           </div>
+
+          {/* ── Pending Users Section ── */}
+          {pendingUsers.length > 0 && (
+            <div style={{ marginBottom: 24, borderBottom: '1px solid var(--border)', pb: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <FiClock size={16} color="#f59e0b" />
+                <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text)', margin: 0 }}>
+                  Awaiting Approval ({pendingUsers.length})
+                </h2>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
+                {pendingUsers.map(u => (
+                  <div key={u.id} style={{
+                    padding: '14px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12,
+                    display: 'flex', alignItems: 'center', gap: 14
+                  }}>
+                    <div style={{ 
+                      width: 40, height: 40, borderRadius: '50%', background: '#f59e0b', color: '#fff', 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13
+                    }}>{initials(u.name)}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{u.name}</div>
+                      <div style={{ fontSize: 12, color: '#92400e' }}>{u.email}</div>
+                    </div>
+                    <button className="btn btn-primary btn-sm" onClick={() => openEdit(u)}>
+                      Assign Role
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="table-wrapper">
             <table>
@@ -133,24 +177,29 @@ export default function SuperAdminUsers() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0
-                  ? <tr><td colSpan={5} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No users found</td></tr>
-                  : filtered.map(emp => (
-                  <tr key={emp.id}>
+                {activeUsers.length === 0
+                  ? <tr><td colSpan={5} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No active users found</td></tr>
+                  : activeUsers.map(emp => (
+                  <tr key={emp.id}
+                    onClick={() => router.push(`/users/${emp.id}`)}
+                    style={{ cursor: 'pointer' }}
+                    title="View details"
+                  >
                     <td>
                       <div className="user-cell">
-                        <div className="user-cell-avatar">{emp.name?.split(' ').map(w => w[0]).join('').slice(0,2)}</div>
+                        <div className="user-cell-avatar">{initials(emp.name)}</div>
                         <span className="user-cell-name">{emp.name}</span>
                       </div>
                     </td>
                     <td className="td-muted">{emp.email}</td>
                     <td><RoleChip role={emp.role} /></td>
                     <td className="td-muted">{deptName(emp.department_id)}</td>
-                    <td>
-                      <div className="action-btns">
-                        <button className="icon-btn" onClick={() => openEdit(emp)} title="Edit"><FiEdit2 size={14} /></button>
-                        <button className="icon-btn danger" onClick={() => setConfirm(emp)} title="Delete"><FiTrash2 size={14} /></button>
-                      </div>
+                    <td onClick={e => e.stopPropagation()}>
+                      <ActionMenu options={[
+                        { label: 'View Profile', icon: <FiExternalLink />, onClick: () => router.push(`/users/${emp.id}`) },
+                        { label: 'Edit User', icon: <FiEdit2 />, onClick: () => openEdit(emp) },
+                        { label: 'Delete', icon: <FiTrash2 />, danger: true, onClick: () => setConfirm(emp) },
+                      ]} />
                     </td>
                   </tr>
                 ))}
@@ -205,8 +254,8 @@ export default function SuperAdminUsers() {
 
       <ConfirmModal
         open={!!confirm} danger
-        title="Remove User"
-        message={`Are you sure you want to remove "${confirm?.name}"? This action cannot be undone.`}
+        title="Delete User"
+        message={`Permanently delete "${confirm?.name}"? This will remove all their courses, progress, and messages. This action cannot be undone.`}
         onConfirm={handleDelete} onCancel={() => setConfirm(null)} loading={deleting}
       />
     </Layout>

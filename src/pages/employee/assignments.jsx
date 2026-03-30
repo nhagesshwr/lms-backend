@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { FiClipboard, FiAlertCircle, FiCheckCircle, FiClock, FiFileText, FiCode, FiEdit3, FiBarChart2 } from 'react-icons/fi';
-import { getToken, assignmentsAPI, mockAssignments } from '../../lib/api';
+import { getToken, getUser, assignmentsAPI } from '../../lib/api';
 import { Layout, Loading, Tabs, Badge, SearchBar, useToast } from '../../components/components';
 
 const TYPE_ICONS = { quiz: FiBarChart2, project: FiCode, exercise: FiEdit3, assessment: FiFileText, report: FiFileText };
@@ -25,7 +25,7 @@ function AssignmentCard({ a, onSubmit }) {
       </div>
       <div className="assignment-info">
         <div className="assignment-title">{a.title}</div>
-        <div className="assignment-course">{a.course}</div>
+        <div className="assignment-course">{a.course || 'Global Assignment'}</div>
         <div className="assignment-due-row">
           <FiClock size={12} />
           <span>{a.status === 'overdue' ? 'Was due' : 'Due'} {new Date(a.due).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
@@ -52,14 +52,25 @@ export default function Assignments() {
 
   useEffect(() => {
     if (!getToken()) { router.push('/login'); return; }
-    assignmentsAPI.getMy().then(setAssignments).catch(() => setAssignments(mockAssignments)).finally(() => setLoading(false));
+    const u = getUser();
+    if (u?.role !== 'employee') { router.push('/dashboard'); return; }
+    assignmentsAPI.getMy()
+      .then(setAssignments)
+      .catch(() => setAssignments([]))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleSubmit = (a) => showToast(`"${a.title}" submitted successfully!`, 'success');
 
   const filtered = (() => {
     let list = tab === 'all' ? assignments : assignments.filter(a => a.status === tab);
-    if (search) { const q = search.toLowerCase(); list = list.filter(a => a.title.toLowerCase().includes(q) || a.course.toLowerCase().includes(q)); }
+    if (search) { 
+      const q = search.toLowerCase(); 
+      list = list.filter(a => 
+        a.title.toLowerCase().includes(q) || 
+        (typeof a.course === 'string' ? a.course.toLowerCase().includes(q) : a.course?.title?.toLowerCase().includes(q))
+      ); 
+    }
     return list;
   })();
 
@@ -79,13 +90,19 @@ export default function Assignments() {
   ];
 
   return (
-    <Layout title="Assignments" subtitle="Track and submit your course assignments">
+    <Layout>
       {ToastComponent}
       {loading ? <Loading /> : (
         <>
-          <div className="toolbar">
-            <Tabs tabs={tabs} active={tab} onChange={setTab} />
-            <SearchBar value={search} onChange={setSearch} placeholder="Search assignments…" />
+          <div className="page-header-block">
+            <div className="page-header-left">
+              <h1 className="page-header-title">Assignments</h1>
+              <p className="page-header-desc">Track and submit your course assignments.</p>
+            </div>
+            <div className="page-header-right">
+              <Tabs tabs={tabs} active={tab} onChange={setTab} />
+              <SearchBar value={search} onChange={setSearch} placeholder="Search assignments…" />
+            </div>
           </div>
           <div className="assignments-list">
             {filtered.length === 0

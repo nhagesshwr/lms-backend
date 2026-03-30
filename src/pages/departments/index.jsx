@@ -4,11 +4,11 @@ import {
   FiLayers, FiPlus, FiEdit2, FiTrash2, FiUsers,
 } from 'react-icons/fi';
 import {
-  getToken, getUser, departmentsAPI, canManageDepartments, canViewEmployees,
+  getToken, getUser, departmentsAPI, canManageDepartments, canViewDepartments,
 } from '../../lib/api';
 import {
   Layout, Button, Modal, FormField, Input, Loading,
-  EmptyState, useToast, ConfirmModal, StatCard, SearchBar,
+  EmptyState, useToast, ConfirmModal, StatCard, SearchBar, ActionMenu,
 } from '../../components/components';
 
 export default function Departments() {
@@ -31,7 +31,7 @@ export default function Departments() {
   useEffect(() => {
     if (!getToken()) { router.push('/login'); return; }
     const u = getUser();
-    if (!canViewEmployees(u?.role)) { router.push('/dashboard'); return; }
+    if (!canViewDepartments(u?.role)) { router.push('/dashboard'); return; }
     setUser(u);
     loadDepts();
   }, []);
@@ -107,22 +107,27 @@ export default function Departments() {
   const totalEmployees = departments.reduce((s, d) => s + (d.employees?.length || 0), 0);
 
   return (
-    <Layout title="Departments" subtitle="Organise your teams and workforce structure">
+    <Layout>
       {ToastComponent}
       {loading ? <Loading /> : (
         <>
+          <div className="page-header-block">
+            <div className="page-header-left">
+              <h1 className="page-header-title">Departments</h1>
+              <p className="page-header-desc">Organise your teams and workforce structure.</p>
+            </div>
+            <div className="page-header-right">
+              <SearchBar value={search} onChange={setSearch} placeholder="Search departments…" />
+              {canManage && (
+                <Button icon={<FiPlus size={14} />} onClick={() => setShowCreate(true)}>
+                  New Department
+                </Button>
+              )}
+            </div>
+          </div>
           <div className="stats-row">
             <StatCard label="Total Departments" value={departments.length} sub="Active teams" color="brand" icon={<FiLayers size={18} />} />
             <StatCard label="Total Employees" value={totalEmployees} sub="Across all departments" color="blue" icon={<FiUsers size={18} />} />
-          </div>
-
-          <div className="toolbar">
-            <SearchBar value={search} onChange={setSearch} placeholder="Search departments…" />
-            {canManage && (
-              <Button icon={<FiPlus size={14} />} onClick={() => setShowCreate(true)}>
-                New Department
-              </Button>
-            )}
           </div>
 
           {filtered.length === 0 ? (
@@ -145,13 +150,11 @@ export default function Departments() {
                       {dept.name?.[0]?.toUpperCase()}
                     </div>
                     {canManage && (
-                      <div className="action-btns">
-                        <button className="icon-btn" onClick={() => openEdit(dept)} title="Edit">
-                          <FiEdit2 size={14} />
-                        </button>
-                        <button className="icon-btn danger" onClick={() => setConfirm(dept)} title="Delete">
-                          <FiTrash2 size={14} />
-                        </button>
+                      <div style={{ marginLeft: 'auto' }} onClick={e => e.stopPropagation()}>
+                        <ActionMenu options={[
+                          { label: 'Edit Department', icon: <FiEdit2 />, onClick: () => openEdit(dept) },
+                          { label: 'Delete', icon: <FiTrash2 />, danger: true, onClick: () => setConfirm(dept) },
+                        ]} />
                       </div>
                     )}
                   </div>

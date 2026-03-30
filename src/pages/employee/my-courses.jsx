@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { FiBookOpen, FiSearch, FiFilter } from 'react-icons/fi';
-import { getToken, getUser, coursesAPI, progressAPI, mockProgress } from '../../lib/api';
+import { getToken, getUser, coursesAPI, progressAPI } from '../../lib/api';
 import { Layout, Loading, EmptyState, SearchBar, Tabs } from '../../components/components';
 import CourseModernCard from '../../components/CourseModernCard';
 
@@ -16,6 +16,8 @@ export default function MyCourses() {
 
   useEffect(() => {
     if (!getToken()) { router.push('/login'); return; }
+    const u = getUser();
+    if (u?.role !== 'employee') { router.push('/dashboard'); return; }
     loadData();
   }, []);
 
@@ -51,12 +53,18 @@ export default function MyCourses() {
   ];
 
   return (
-    <Layout title="My Courses" subtitle="Track your enrolled learning paths">
+    <Layout>
       {loading ? <Loading /> : (
         <>
-          <div className="toolbar">
-            <Tabs tabs={tabs} active={tab} onChange={setTab} />
-            <SearchBar value={search} onChange={setSearch} placeholder="Search courses…" />
+          <div className="page-header-block">
+            <div className="page-header-left">
+              <h1 className="page-header-title">My Courses</h1>
+              <p className="page-header-desc">Track your enrolled learning paths.</p>
+            </div>
+            <div className="page-header-right">
+              <Tabs tabs={tabs} active={tab} onChange={setTab} />
+              <SearchBar value={search} onChange={setSearch} placeholder="Search courses…" />
+            </div>
           </div>
 
           {filtered.length === 0 ? (

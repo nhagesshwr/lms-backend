@@ -1,205 +1,42 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import {
-  FiGrid, FiBookOpen, FiUsers, FiLayers, FiUser,
-  FiLogOut, FiSearch, FiX, FiAlertTriangle,
-  FiCheck, FiInfo, FiMenu, FiBell, FiAward,
-  FiActivity, FiMessageSquare, FiCompass,
-  FiBarChart2, FiClipboard, FiVideo, FiTrendingUp,
-  FiChevronRight, FiAlertCircle,
+  FiUser, FiLogOut, FiSearch, FiX, FiAlertTriangle,
+  FiCheck, FiInfo, FiMenu, FiBell,
+  FiChevronRight, FiAlertCircle, FiMoreVertical, FiTrendingUp, FiTrendingDown,
 } from 'react-icons/fi';
 import {
   authAPI, getUser, canViewEmployees, canManageDepartments,
-  isSuperAdmin, isHROrAbove, notificationsAPI, mockNotifications,
+  isSuperAdmin, isHROrAbove, isManager, notificationsAPI, mockNotifications,
 } from '../lib/api';
 
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
-export function Sidebar({ collapsed, onToggle }) {
-  const router = useRouter();
-  const path   = router.pathname;
-  const [notifications, setNotifications] = useState([]);
-  const [isClient, setIsClient] = useState(false);
+// ─── Sidebar (extracted to Sidebar.jsx) ──────────────────────────────────────────────
+import { Sidebar } from './Sidebar';
+export { Sidebar };
 
-  useEffect(() => {
-    setIsClient(true);
-    notificationsAPI.getAll().then(setNotifications).catch(() => {});
-  }, []);
+// ─── Navbar / TopBar (extracted to Navbar.jsx) ───────────────────────────────────────
+import { Navbar } from './Navbar';
+// TopBar is kept as an alias so existing pages don't break
+export { Navbar };
+export const TopBar = Navbar;
 
-  const employeeNav = [
-    { href: '/employee/dashboard',    Icon: FiGrid,        label: 'Dashboard' },
-    { href: '/employee/my-courses',   Icon: FiBookOpen,    label: 'My Courses' },
-    { href: '/employee/assignments',  Icon: FiClipboard,   label: 'Assignments' },
-    { href: '/employee/live-classes', Icon: FiVideo,       label: 'Live Classes' },
-    { href: '/employee/explore',      Icon: FiCompass,     label: 'Explore' },
-    { href: '/employee/leaderboard',  Icon: FiTrendingUp,  label: 'Leaderboard' },
-    { href: '/employee/certificates', Icon: FiAward,       label: 'Certificates' },
-    { href: '/employee/messages',     Icon: FiMessageSquare, label: 'Messages' },
-    { href: '/employee/study-groups', Icon: FiUsers,       label: 'Study Groups' },
-    { href: '/employee/progress',     Icon: FiBarChart2,   label: 'Progress' },
-  ];
-
-  const hrNav = [
-    { href: '/dashboard',    Icon: FiGrid,     label: 'Overview' },
-    { href: '/employees',    Icon: FiUsers,    label: 'Users' },
-    { href: '/courses',      Icon: FiBookOpen, label: 'Courses' },
-    { href: '/departments',  Icon: FiLayers,   label: 'Departments' },
-    { href: '/admin/activity', Icon: FiActivity, label: 'Activity' },
-  ];
-
-  const superNav = [
-    { href: '/superadmin/overview',   Icon: FiGrid,      label: 'Overview' },
-    { href: '/superadmin/users',      Icon: FiUsers,     label: 'Users' },
-    { href: '/superadmin/courses',    Icon: FiBookOpen,  label: 'Courses' },
-    { href: '/superadmin/content',    Icon: FiVideo,     label: 'Content' },
-    { href: '/superadmin/activity',   Icon: FiActivity,  label: 'Activity' },
-  ];
-
-  // Derive synchronously
-  const user = typeof window !== 'undefined' ? getUser() : null;
-  const role = user?.role;
-  
-  let navItems = employeeNav;
-  let navLabel = 'MAIN';
-  if (role === 'super_admin') { navItems = superNav; navLabel = 'SUPER ADMIN'; }
-  else if (role === 'hr_admin' || role === 'manager') { navItems = hrNav; navLabel = 'ADMIN'; }
-
-  if (!isClient) {
-    // Return empty sidebar on server to perfectly match and avoid hydration errors,
-    // or just return the skeleton.
-    return <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''}`}><div className="sidebar-header"></div></aside>;
-  }
-
-  return (
-    <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''}`}>
-      <div className="sidebar-header">
-        <div className="sidebar-logo-wrap">
-          <div className="sidebar-logo-img-box">
-            <img src="/bryte.png" alt="Bryte" className="sidebar-logo-img" />
-          </div>
-        </div>
-        <button className="sidebar-toggle-btn" onClick={onToggle}>
-          <FiMenu size={16} />
-        </button>
-      </div>
-
-      <nav className="sidebar-nav">
-        {!collapsed && <div className="nav-section-label">{navLabel}</div>}
-        {navItems.map(({ href, Icon, label }) => {
-          const active = path === href || path.startsWith(href + '/');
-          return (
-            <Link key={href} href={href} className={`nav-item ${active ? 'active' : ''}`}>
-              <span className="nav-icon"><Icon size={17} /></span>
-              {!collapsed && <span className="nav-label">{label}</span>}
-              {active && !collapsed && <span className="nav-active-dot" />}
-            </Link>
-          );
-        })}
-      </nav>
-
-
-    </aside>
-  );
-}
-
-// ─── TopBar ──────────────────────────────────────────────────────────────────
-export function TopBar({ title, subtitle, actions }) {
-  const router = useRouter();
-  const [notifs, setNotifs] = useState([]);
-  const [showNotifs, setShowNotifs] = useState(false);
-  const [showUser, setShowUser]     = useState(false);
-  const [userName, setUserName]     = useState('');
-  const [initials, setInitials]     = useState('');
-  const [greeting, setGreeting]     = useState('');
-  const unread = notifs.filter(n => !n.read).length;
-
-  const handleLogout = () => {
-    authAPI.logout();
-    router.push('/login');
-  };
-
-  useEffect(() => {
-    notificationsAPI.getAll().then(setNotifs).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    const user = getUser();
-    const name = user?.name || '';
-    setUserName(name.split(' ')[0] || '');
-    setInitials(
-      name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-    );
-    const hour = new Date().getHours();
-    setGreeting(hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening');
-  }, []);
-
-  return (
-    <div className="topbar-new">
-      <div className="topbar-left">
-        <h1 className="topbar-title">{title || (greeting ? `${greeting}, ${userName}!` : '')}</h1>
-        {subtitle && <p className="topbar-sub">{subtitle}</p>}
-      </div>
-      <div className="topbar-right">
-        {actions}
-        <div className="notif-wrap">
-          <button className="notif-btn" onClick={() => setShowNotifs(v => !v)}>
-            <FiBell size={18} />
-            {unread > 0 && <span className="notif-badge">{unread}</span>}
-          </button>
-          {showNotifs && (
-            <div className="notif-dropdown">
-              <div className="notif-header">
-                <span>Notifications</span>
-                {unread > 0 && <span className="notif-unread-count">{unread} new</span>}
-              </div>
-              {notifs.map(n => (
-                <div key={n.id} className={`notif-item ${!n.read ? 'unread' : ''}`}>
-                  <div className="notif-dot" />
-                  <div className="notif-content">
-                    <div className="notif-msg">{n.message}</div>
-                    <div className="notif-time">{n.time}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="topbar-user-wrap">
-          <div className="topbar-user-chip" onClick={() => setShowUser(v => !v)} style={{ cursor: 'pointer' }}>
-            <div className="topbar-avatar">{initials}</div>
-            {userName}
-          </div>
-          {showUser && (
-            <div className="user-dropdown">
-              <Link href="/profile" className="user-dropdown-item">
-                <FiUser size={15} />
-                <span>My Account</span>
-              </Link>
-              <div className="user-dropdown-item danger" onClick={handleLogout}>
-                <FiLogOut size={15} />
-                <span>Logout</span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
+// Sidebar + page-wrapper owned by _app.jsx. Layout = Navbar + page content only.
 export function Layout({ children, title, subtitle, actions }) {
-  const [collapsed, setCollapsed] = useState(false);
   return (
-    <div className="page-wrapper">
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(v => !v)} />
-      <main className={`main-content fade-up ${collapsed ? 'main-content-wide' : ''}`}>
-        <TopBar title={title} subtitle={subtitle} actions={actions} />
+    <>
+      <Navbar title={title} subtitle={subtitle} actions={actions} />
+      <div className="page-content fade-up">
         {children}
-      </main>
-    </div>
+      </div>
+    </>
   );
 }
+
+
 
 // ─── Page Header (legacy compat) ──────────────────────────────────────────────
 export function PageHeader({ title, subtitle, actions }) {
@@ -218,18 +55,18 @@ export function PageHeader({ title, subtitle, actions }) {
 export function StatCard({ label, value, sub, color = 'brand', icon, trend, trendUp }) {
   return (
     <div className={`stat-card ${color}`}>
-      <div className="stat-card-header">
-        <div className={`stat-icon ${color}`}>{icon}</div>
+      <div className="stat-card-left">
         {trend && (
           <div className={`stat-trend ${trendUp ? 'up' : 'down'}`}>
-            <FiTrendingUp size={11} />
+            <FiTrendingUp size={10} />
             {trend}
           </div>
         )}
+        <div className="stat-label">{label}</div>
+        <div className="stat-value">{value}</div>
+        {sub && <div className="stat-sub">{sub}</div>}
       </div>
-      <div className="stat-value">{value}</div>
-      <div className="stat-label">{label}</div>
-      {sub && <div className="stat-sub">{sub}</div>}
+      {icon && <div className="stat-card-icon-wrap">{icon}</div>}
     </div>
   );
 }
@@ -283,8 +120,12 @@ export function Button({ children, variant = 'primary', size, icon, className = 
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
 export function Modal({ title, open, onClose, children, footer, size }) {
-  if (!open) return null;
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!open || !mounted) return null;
+
+  return createPortal(
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className={`modal ${size ? `modal-${size}` : ''}`}>
         <div className="modal-header">
@@ -294,7 +135,8 @@ export function Modal({ title, open, onClose, children, footer, size }) {
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-footer">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -313,6 +155,60 @@ export const Input    = ({ className = '', ...p }) => <input    className={`form
 export const Select   = ({ className = '', children, ...p }) => <select className={`form-select ${className}`} {...p}>{children}</select>;
 export const Textarea = ({ className = '', ...p }) => <textarea className={`form-textarea ${className}`} {...p} />;
 
+// ─── Action Menu ──────────────────────────────────────────────────────────────
+export function ActionMenu({ options }) {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef(null);
+  const [coords, setCoords] = useState({ top: 0, right: 0 });
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setCoords({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClose = () => setOpen(false);
+    window.addEventListener('click', handleClose);
+    window.addEventListener('scroll', handleClose, true);
+    return () => {
+      window.removeEventListener('click', handleClose);
+      window.removeEventListener('scroll', handleClose, true);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button ref={buttonRef} className="btn btn-ghost btn-sm" style={{ padding: '6px' }} onClick={(e) => {
+        e.stopPropagation();
+        setOpen(!open);
+      }}>
+        <FiMoreVertical size={16} />
+      </button>
+      {open && mounted && createPortal(
+        <div 
+          className="action-menu-dropdown" 
+          style={{ top: coords.top, right: coords.right }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {options.map((opt, i) => (
+            <button key={i} className={`action-menu-item ${opt.danger ? 'danger' : ''}`} onClick={(e) => { e.stopPropagation(); setOpen(false); opt.onClick(); }} style={opt.color && !opt.danger ? { '--item-color': opt.color } : {}}>
+              {opt.icon && <span className="action-menu-icon" style={opt.color ? { color: opt.color } : {}}>{opt.icon}</span>}
+              <span className="action-menu-label" style={opt.color ? { color: opt.color } : {}}>{opt.label}</span>
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
 // ─── Search bar ───────────────────────────────────────────────────────────────
 export function SearchBar({ value, onChange, placeholder = 'Search…' }) {
   return (
@@ -330,13 +226,20 @@ export function SearchBar({ value, onChange, placeholder = 'Search…' }) {
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 export function Toast({ message, type, onClose }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   const Icon = type === 'success' ? FiCheck : type === 'error' ? FiAlertTriangle : FiInfo;
-  return (
+
+  if (!mounted) return null;
+
+  return createPortal(
     <div className={`toast ${type}`} onClick={onClose}>
       <Icon size={15} />
       <span>{message}</span>
       <FiX size={13} className="toast-close-icon" />
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -393,8 +296,12 @@ export function RoleChip({ role }) {
 
 // ─── Confirm Modal ────────────────────────────────────────────────────────────
 export function ConfirmModal({ open, title, message, onConfirm, onCancel, loading, danger }) {
-  if (!open) return null;
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!open || !mounted) return null;
+
+  return createPortal(
     <div className="modal-overlay">
       <div className="modal modal-sm">
         <div className="modal-header">
@@ -414,7 +321,8 @@ export function ConfirmModal({ open, title, message, onConfirm, onCancel, loadin
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -98,8 +98,8 @@ export default function Login() {
         setFadeOverlay(true);
         setTimeout(() => {
           router.push('/');
-        }, 1000); // Route after fade out
-      }, 5500); // Show globe animation for 5.5s
+        }, 600); // fade out
+      }, 1800); // show animation for 1.8s
       
     } catch (err) {
       setError(err.message || 'Invalid credentials. Please try again.');

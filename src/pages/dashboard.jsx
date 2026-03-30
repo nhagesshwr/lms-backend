@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { FiBookOpen, FiUsers, FiLayers, FiClock, FiArrowRight, FiCheckCircle, FiActivity, FiPlusCircle } from 'react-icons/fi';
-import { getToken, getUser, coursesAPI, employeesAPI, departmentsAPI, canViewEmployees, isHROrAbove, isSuperAdmin } from '../lib/api';
+import { getToken, getUser, coursesAPI, employeesAPI, departmentsAPI, canViewEmployees, isHROrAbove, isSuperAdmin, isManager } from '../lib/api';
 import { Layout, StatCard, Loading, RoleChip, Badge } from '../components/components';
 
 export default function Dashboard() {
@@ -16,7 +16,6 @@ export default function Dashboard() {
     if (!getToken()) { router.push('/login'); return; }
     const u = getUser();
     if (!u) { router.push('/login'); return; }
-    // Redirect employees to their own dashboard
     if (u.role === 'employee') { router.push('/employee/dashboard'); return; }
     if (u.role === 'super_admin') { router.push('/superadmin/overview'); return; }
     setUser(u);
@@ -30,30 +29,46 @@ export default function Dashboard() {
         employeesAPI.getAll().catch(() => []),
         departmentsAPI.getAll().catch(() => []),
       ]);
-      setStats({ courses: courses.length, published: courses.filter(c => c.is_published).length, employees: emps.length, departments: depts.length });
+      // Manager: filter to their department team
+      const teamEmps = u.role === 'manager' && u.department_id
+        ? emps.filter(e => e.department_id === u.department_id)
+        : emps;
+      setStats({ courses: courses.length, published: courses.filter(c => c.is_published).length, employees: teamEmps.length, departments: depts.length });
       setCourses(courses.slice(0, 6));
     } finally { setLoading(false); }
   };
 
   if (!user) return null;
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
-  const quickLinks = [
-    { label: 'Manage Users',    href: '/employees',    icon: FiUsers },
-    { label: 'All Courses',     href: '/courses',      icon: FiBookOpen },
-    { label: 'Departments',     href: '/departments',  icon: FiLayers },
-    { label: 'View Activity',   href: '/admin/activity', icon: FiActivity },
+  const isManagerRole = isManager(user.role);
+
+  const quickLinks = isManagerRole ? [
+    { label: 'My Team',     href: '/employees',   icon: FiUsers },
+    { label: 'Courses',     href: '/courses',     icon: FiBookOpen },
+    { label: 'Departments', href: '/departments', icon: FiLayers },
+  ] : [
+    { label: 'Manage Users',  href: '/employees',      icon: FiUsers },
+    { label: 'All Courses',   href: '/courses',        icon: FiBookOpen },
+    { label: 'Departments',   href: '/departments',    icon: FiLayers },
+    { label: 'View Activity', href: '/admin/activity', icon: FiActivity },
   ];
 
+  const pageDesc = isManagerRole
+    ? 'View your team performance, manage courses, and track department progress.'
+    : 'Manage employees, courses, departments, and monitor platform activity.';
+
   return (
-    <Layout title={`${greeting}, ${user.name?.split(' ')[0]}!`} subtitle="HR Admin overview — manage courses, teams, and activity.">
+    <Layout title="Dashboard">
       {loading ? <Loading /> : (
         <>
+          <div className="page-header-block">
+            <h1 className="page-header-title">Dashboard</h1>
+            <p className="page-header-desc">{pageDesc}</p>
+          </div>
           <div className="stats-row">
             <StatCard label="Total Courses" value={stats.courses} sub={`${stats.published} published`} color="brand" icon={<FiBookOpen size={18} />} />
-            <StatCard label="Employees" value={stats.employees} sub="Active members" color="blue" icon={<FiUsers size={18} />} />
-            <StatCard label="Departments" value={stats.departments} sub="Active teams" color="green" icon={<FiLayers size={18} />} />
+            <StatCard label={isManagerRole ? 'Team Members' : 'Employees'} value={stats.employees} sub={isManagerRole ? 'In your department' : 'Active members'} color="blue" icon={<FiUsers size={18} />} />
+            {!isManagerRole && <StatCard label="Departments" value={stats.departments} sub="Active teams" color="green" icon={<FiLayers size={18} />} />}
             <StatCard label="Platform Status" value="Live" sub="All systems OK" color="orange" icon={<FiCheckCircle size={18} />} />
           </div>
 
